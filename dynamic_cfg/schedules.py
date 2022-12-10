@@ -2,8 +2,8 @@
 
 # %% auto 0
 __all__ = ['num_steps', 'baseline_g', 'max_val', 'min_val', 'num_warmup_steps', 'warmup_init_val', 'num_cycles', 'k_decay',
-           'DEFAULT_SCHED_PARAMS', 'name2schedule', 'get_cos_sched', 'GuidanceSchedule', 'CosGuidanceSchedule',
-           'ConstantGuidanceSchedule']
+           'DEFAULT_SCHED_PARAMS', 'T_max_val', 'T_min_val', 'DEFAULT_T_PARAMS', 'name2schedule', 'get_cos_sched',
+           'GuidanceSchedule', 'CosGuidanceSchedule', 'ConstantGuidanceSchedule']
 
 # %% ../nbs/03_schedules.ipynb 3
 import math 
@@ -38,7 +38,6 @@ def get_cos_sched(num_steps: int = 50,
         TODO: experiment with these settings for diffusion.  
         
     NOTE: cycle_* parameters might not work as intended, since we are dealing with "one" epoch.
-        TODO: investigate
     
     Based on a combo of HuggingFace and timm schedulers:
         https://github.com/rwightman/pytorch-image-models/blob/main/timm/scheduler/cosine_lr.py
@@ -48,12 +47,12 @@ def get_cos_sched(num_steps: int = 50,
     def cos_sched_helper(current_step):
         "Helper to compute cosine values."
         
-        # get the warmup value
+        # get the warmup values
         if current_step < num_warmup_steps:
             init_offset = float(current_step * (max_val - warmup_init_val)) / float(max(1, num_warmup_steps))
             return warmup_init_val + init_offset
         
-        # else get the regular scheduled values
+        # get the regular scheduled values
         else:
 
             if cycle_mul != 1:
@@ -83,7 +82,7 @@ def get_cos_sched(num_steps: int = 50,
 
             return val
 
-    # get the actual schedule value
+    # get the schedule values for each timestep
     vals = [cos_sched_helper(i) for i in range(num_steps)]
     return vals
 
@@ -91,7 +90,7 @@ def get_cos_sched(num_steps: int = 50,
 # %% ../nbs/03_schedules.ipynb 5
 # Default schedule parameters from the blog post
 ######################################
-num_steps         = 50
+num_steps         = 50   # the default number of steps, matching `diffusers` API
 baseline_g        = 8    # default, static guidance value
 max_val           = 9    # the max scheduled guidance scaling value
 min_val           = 6    # the minimum scheduled guidance value
@@ -111,13 +110,20 @@ DEFAULT_SCHED_PARAMS = {
     'num_warmup_steps':  num_warmup_steps,
     'warmup_init_val':   warmup_init_val,
 }
+
+
+# smaller value for T-norm
+T_max_val = 0.2
+T_min_val = 0.08
+DEFAULT_T_PARAMS = dict(DEFAULT_SCHED_PARAMS)
+DEFAULT_T_PARAMS.update({'max_val': T_max_val, 'min_val': T_min_val})
 ######################################
 
 
 
 class GuidanceSchedule:
-    def __init__(self, default_kwargs={}):
-        self.sched_kwargs = dict(default_kwargs or DEFAULT_SCHED_PARAMS)
+    def __init__(self, default_kwargs=DEFAULT_SCHED_PARAMS):
+        self.sched_kwargs = dict(default_kwargs)
         self.schedules = {}
         
     def set_num_steps(self, num_steps):
