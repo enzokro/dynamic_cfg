@@ -84,10 +84,10 @@ class KDiffusionNames:
 class CFGDenoiser(nn.Module):
     """Runs Classifier-free Guidance with optional schedules and normalizations.
     """
-    def __init__(self, model, guide_tfm=None):
+    def __init__(self, model, dynamic_cfg=None):
         super().__init__()
         self.inner_model = model
-        self.guide_tfm = guide_tfm
+        self.dynamic_cfg = dynamic_cfg
         self.device = utils.get_device()
 
     def forward(
@@ -112,7 +112,6 @@ class CFGDenoiser(nn.Module):
             time_encoding=sigma,
             uncond=uncond,
             cond=cond,
-            g_idxs=g_idxs,
         )
         return noise_pred
     
@@ -123,7 +122,6 @@ class CFGDenoiser(nn.Module):
         time_encoding,
         uncond,
         cond,
-        g_idxs,
     ):
         # pad the latent with batch dimensions if needed
         noisy_latent = utils.maybe_add_batch_dim(noisy_latent)
@@ -142,7 +140,7 @@ class CFGDenoiser(nn.Module):
         ).chunk(2)
     
         # run the guidance scheduler and normalization
-        noise_pred = self.guide_tfm(noise_pred_neutral, noise_pred_positive, next(g_idxs))
+        noise_pred = self.dynamic_cfg.guide(noise_pred_neutral, noise_pred_positive, next(g_idxs))
 
         return noise_pred
 
@@ -182,7 +180,7 @@ class KDiffusionSampler(ImageSampler, ABC):
         orig_latent=None,
         initial_latent=None,
         t_start=None,
-        guide_tfm=None,
+        dynamic_cfg=None,
         use_karras_sigmas=True,
     ):
 
@@ -198,15 +196,7 @@ class KDiffusionSampler(ImageSampler, ABC):
             sigmas = k_sampling.get_sigmas_karras(n=num_steps, sigma_min=0.1, sigma_max=10, device=self.device)
         else:
             sigmas = self.cv_denoiser.get_sigmas(num_steps)[t_start:]
-        
-        # build timestep iterator for schedules
-        g_idxs = []
-        for i in range(len(sigmas)):
-            if 'sde' or '2s_a' or 'dpm_2' in self.short_name:
-                g_idxs.extend([i,i])
-            else:
-                g_idxs.append(i)
-        g_idxs = iter(g_idxs)
+        dynamic_cfg.set_timesteps(len(sigmas))
 
         # if our number of steps is zero, just return the initial latent
         if sigmas.nelement() == 0:
@@ -216,7 +206,7 @@ class KDiffusionSampler(ImageSampler, ABC):
 
         x = initial_latent * sigmas[0]
         #log_latent(x, "initial_sigma_noised_tensor")
-        model_wrap_cfg = CFGDenoiser(self.cv_denoiser, guide_tfm=guide_tfm)
+        model_wrap_cfg = CFGDenoiser(self.cv_denoiser, dynamic_cfg=dynamic_cfg)
 
         mask_noise = None
         if mask is not None:
@@ -234,7 +224,6 @@ class KDiffusionSampler(ImageSampler, ABC):
                 "mask": mask,
                 "mask_noise": mask_noise,
                 "orig_latent": orig_latent,
-                "g_idxs": g_idxs,
             },
             disable=False,
             #callback=callback,
