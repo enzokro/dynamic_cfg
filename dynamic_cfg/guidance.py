@@ -12,14 +12,14 @@ from .normalizers import name2norm
 class DynamicCFG:
     def __init__(self, norm_name, schedule_name):
         self.normalzier = name2norm[norm_name]()
-        self.schedules = name2schedule[schedule_name]()
+        self.scheduler = name2schedule[schedule_name]()
 
-    def guide(self, cond, uncond, ts):
+    def guide(self, uncond, cond, ts):
         """Applies dynamic Classifier-free Guidance.
         """
         # set the conditional and unconditional vectors
         self.normalzier.set_latents(u=uncond, t=cond)
-        # compute the update: (cond - uncond)
+        # compute the guidate update vector: (cond - uncond)
         self.normalzier.compute_update()
 
         # apply optional pre-processing
@@ -39,7 +39,7 @@ class DynamicCFG:
         return self.normalzier.get_pred()
 
     def update_sched_kwargs(self, other_kwargs):
-        self.schedules.update_sched_kwargs(other_kwargs)
+        self.scheduler.update_sched_kwargs(other_kwargs)
     def set_timesteps(self, num_steps):
-        self.schedules.set_num_steps(num_steps)
-        self.schedules.set_guidance_schedule()
+        self.scheduler.set_num_steps(num_steps)
+        self.scheduler.set_guidance_schedule()

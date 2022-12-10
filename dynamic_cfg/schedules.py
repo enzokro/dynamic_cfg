@@ -2,7 +2,8 @@
 
 # %% auto 0
 __all__ = ['num_steps', 'baseline_g', 'max_val', 'min_val', 'num_warmup_steps', 'warmup_init_val', 'num_cycles', 'k_decay',
-           'DEFAULT_SCHED_PARAMS', 'name2schedule', 'get_cos_sched', 'GuidanceSchedule', 'CosGuidanceSchedule']
+           'DEFAULT_SCHED_PARAMS', 'name2schedule', 'get_cos_sched', 'GuidanceSchedule', 'CosGuidanceSchedule',
+           'ConstantGuidanceSchedule']
 
 # %% ../nbs/03_schedules.ipynb 3
 import math 
@@ -136,14 +137,26 @@ class GuidanceSchedule:
     def get_param(self, name, idx):
         return self.schedules[name][idx]
 
-
-class CosGuidanceSchedule(GuidanceSchedule):
-    def set_guidance_schedule(self):
-        self.schedules['g'] = get_cos_sched(**self.sched_kwargs)
     def value_at(self, ts):
         return self.schedules['g'][int(ts)]
+
+
+class CosGuidanceSchedule(GuidanceSchedule):
+    def set_guidance_schedule(self, invert=True):
+        sched = get_cos_sched(**self.sched_kwargs)
+        # invert k-decay schedules when k is less than one
+        if self.sched_kwargs['k_decay'] < 1:
+            sched = [self.sched_kwargs['max_val'] - g + self.sched_kwargs['min_val'] for g in sched]
+        self.schedules['g'] = sched
+
+
+class ConstantGuidanceSchedule(GuidanceSchedule):
+    def set_guidance_schedule(self):
+        sched = [self.sched_kwargs['max_val'] for _ in range(self.sched_kwargs['num_steps'])]
+        self.schedules['g'] = sched
         
         
 name2schedule = {
     'cos': CosGuidanceSchedule,
+    'constant': ConstantGuidanceSchedule,
 }

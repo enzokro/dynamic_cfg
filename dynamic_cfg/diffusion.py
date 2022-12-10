@@ -190,7 +190,7 @@ class MinimalDiffusion:
         
         # use the k-diffusion library
         if self.use_k_diffusion:
-            latents = self.k_sampling_loop(num_steps, text, uncond, latents, dynamic_cfg)
+            latents = self.k_sampling_loop(num_steps, text, uncond, latents)
         
         # use the diffusers scheduler loop
         else:
