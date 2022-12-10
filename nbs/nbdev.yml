@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "dynamic_cfg"
+  site-url: "https://enzokro.github.io/dynamic_cfg"
+  description: "dynamic Classifier-free Guidance for Diffusion models"
+  repo-branch: main
+  repo-url: "https://github.com/enzokro/dynamic_cfg"
