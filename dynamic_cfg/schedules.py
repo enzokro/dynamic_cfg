@@ -2,8 +2,8 @@
 
 # %% auto 0
 __all__ = ['num_steps', 'baseline_g', 'max_val', 'min_val', 'num_warmup_steps', 'warmup_init_val', 'num_cycles', 'k_decay',
-           'DEFAULT_SCHED_PARAMS', 'T_max_val', 'T_min_val', 'DEFAULT_T_PARAMS', 'name2schedule', 'get_cos_sched',
-           'GuidanceSchedule', 'CosGuidanceSchedule', 'ConstantGuidanceSchedule']
+           'invert_k_sched', 'DEFAULT_SCHED_PARAMS', 'T_max_val', 'T_min_val', 'DEFAULT_T_PARAMS', 'name2schedule',
+           'get_cos_sched', 'GuidanceSchedule', 'CosGuidanceSchedule', 'ConstantGuidanceSchedule']
 
 # %% ../nbs/03_schedules.ipynb 3
 import math 
@@ -98,6 +98,7 @@ num_warmup_steps  = 0    # number of warmup steps
 warmup_init_val   = 0    # the intial warmup value
 num_cycles        = 0.5  # number of cosine cycles
 k_decay           = 1    # k-decay for cosine curve scaling 
+invert_k_sched    = True # whether to invert small k schedules
 
 
 # group the default schedule parameters
@@ -107,14 +108,15 @@ DEFAULT_SCHED_PARAMS = {
     'min_val':           min_val,
     'num_cycles':        num_cycles,
     'k_decay':           k_decay,
+    'invert_k_sched':    invert_k_sched,  
     'num_warmup_steps':  num_warmup_steps,
     'warmup_init_val':   warmup_init_val,
 }
 
 
 # smaller value for T-norm
-T_max_val = 0.2
-T_min_val = 0.08
+T_max_val = 0.3
+T_min_val = 0.15
 DEFAULT_T_PARAMS = dict(DEFAULT_SCHED_PARAMS)
 DEFAULT_T_PARAMS.update({'max_val': T_max_val, 'min_val': T_min_val})
 ######################################
@@ -139,19 +141,16 @@ class GuidanceSchedule:
         
     def set_guidance_schedule(self):
         raise NotImplementedError
-        
-    def get_param(self, name, idx):
-        return self.schedules[name][idx]
 
-    def value_at(self, ts):
-        return self.schedules['g'][int(ts)]
+    def value_of(self, param, at=None):
+        return self.schedules[param][int(at)]
 
 
 class CosGuidanceSchedule(GuidanceSchedule):
     def set_guidance_schedule(self, invert=True):
         sched = get_cos_sched(**self.sched_kwargs)
         # invert k-decay schedules when k is less than one
-        if self.sched_kwargs['k_decay'] < 1:
+        if (self.sched_kwargs['k_decay'] < 1) and self.sched_kwargs.get('invert_k_sched'):
             sched = [self.sched_kwargs['max_val'] - g + self.sched_kwargs['min_val'] for g in sched]
         self.schedules['g'] = sched
 
@@ -161,7 +160,9 @@ class ConstantGuidanceSchedule(GuidanceSchedule):
         sched = [self.sched_kwargs['max_val'] for _ in range(self.sched_kwargs['num_steps'])]
         self.schedules['g'] = sched
         
-        
+
+'''Map from string name to guidance schedule class.
+'''  
 name2schedule = {
     'cos': CosGuidanceSchedule,
     'constant': ConstantGuidanceSchedule,

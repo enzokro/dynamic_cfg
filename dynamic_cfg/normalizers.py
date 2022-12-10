@@ -11,21 +11,26 @@ import torch
 
 # %% ../nbs/02_normalizers.ipynb 4
 class GuidanceTfm:
-    """Baseline Classifier-free Guidance for Difussion.
+    """Baseline Classifier-free Guidance for Diffusion.
     """
     name = "CFGuidance"
-    def __init__(self, has_preproc=False, has_postproc=False):
-        self.has_preproc = has_preproc
-        self.has_postproc = has_postproc
-        self.u, self.t, self.pred = None, None, None
+    def __init__(self):
+        # variables for the unconditioned and conditioned latents
+        self.u, self.t = None, None
+        # variable for the guidance update and final predictions
+        self.diff, self.pred = None, None
+
+    def apply_cfg(self, guidance_scale):
+        pred = self.u + guidance_scale * (self.diff)
+        self.pred = pred
 
     def pre_proc (self): pass
     def post_proc(self): pass
 
-    def set_latents(self, u, t):
-        self.set_u(u), self.set_t(t)
     def set_u(self, u): self.u = u
     def set_t(self, t): self.t = t
+    def set_latents(self, u, t):
+        self.u, self.t = u, t
 
     def compute_update(self):
         self.diff = self.t - self.u
@@ -38,33 +43,28 @@ class PredNormGuidance(GuidanceTfm):
     """Scales the noise prediction by its overall norm.
     """
     name = "BaseNormGuidance"
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, has_postproc=True, **kwargs)
     def post_proc(self):
         self.pred = self.pred * (torch.linalg.norm(self.u) / torch.linalg.norm(self.pred))
         
         
 class TNormGuidance(GuidanceTfm):
-    """Scales the latent mix of `t - u`
+    """Scales the latent mix of `t - u`.
+
+    Note: Roughly equivalent to the GuidedTTS Norm
+        Reference: https://arxiv.org/pdf/2205.15370.pdf
     """
     name = "TNormGuidance"
-    def __init__(self, *args, **kwargs):
-        super().__init__(has_preproc=True)
     def pre_proc(self):
-        self.diff = self.diff / torch.linalg.norm(self.diff) * torch.linalg.norm(self.u)
+        self.diff = (self.diff / torch.linalg.norm(self.diff)) * torch.linalg.norm(self.u)
         
         
-class FullNormGuidance(GuidanceTfm):
-    "Applies both Base and T-Norm on the noise prediction."
+class FullNormGuidance(TNormGuidance, PredNormGuidance):
+    "Applies both Prediction and T-Norm on the noise prediction."
     name = "FullNormGuidance"
-    def __init__(self, *args, **kwargs):
-        super().__init__(has_postproc=True, has_preproc=True)
-    def pre_proc(self):
-        self.diff = self.diff / torch.linalg.norm(self.diff) * torch.linalg.norm(self.u)
-    def post_proc(self):
-        self.pred = self.pred * (torch.linalg.norm(self.u) / torch.linalg.norm(self.pred))
 
 
+'''Map from string name to guidance normalization class.
+'''
 name2norm = {
     'no_norm': GuidanceTfm,
     'pred_norm': PredNormGuidance,

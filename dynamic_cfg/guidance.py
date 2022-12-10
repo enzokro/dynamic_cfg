@@ -10,36 +10,38 @@ from .normalizers import name2norm
 
 # %% ../nbs/01_guidance.ipynb 3
 class DynamicCFG:
-    def __init__(self, norm_name, schedule_name):
-        self.normalzier = name2norm[norm_name]()
+    def __init__(self, norm_name='no_norm', schedule_name='constant'):
+        self.normalizer = name2norm[norm_name]()
         self.scheduler = name2schedule[schedule_name]()
+
 
     def guide(self, uncond, cond, ts):
         """Applies dynamic Classifier-free Guidance.
         """
         # set the conditional and unconditional vectors
-        self.normalzier.set_latents(u=uncond, t=cond)
-        # compute the guidate update vector: (cond - uncond)
-        self.normalzier.compute_update()
+        self.normalizer.set_latents(u=uncond, t=cond)
+        # compute the guidance update vector: (cond - uncond)
+        self.normalizer.compute_update()
 
         # apply optional pre-processing
-        if self.normalzier.has_preproc:
-            self.normalzier.pre_proc()
+        self.normalizer.pre_proc()
 
-        # get the current, scheduled guidance value 
-        guide_scale = self.scheduler.value_at(ts)
+        # get the current, scheduled guidance scale 
+        guidance_scale = self.scheduler.value_of(param='g', at=ts)
         # run classifier-free guidance 
-        pred = self.normalzier.u + (guide_scale * self.normalzier.diff)
-        self.normalzier.set_pred(pred)
+        self.normalizer.apply_cfg(guidance_scale)
 
         # apply optional post-processing
-        if self.normalzier.has_postproc:
-            self.normalzier.post_proc()
+        self.normalizer.post_proc()
 
-        return self.normalzier.get_pred()
+        # return the dynamic noise prediction
+        return self.normalizer.get_pred()
+
 
     def update_sched_kwargs(self, other_kwargs):
         self.scheduler.update_sched_kwargs(other_kwargs)
+
+
     def set_timesteps(self, num_steps):
         self.scheduler.set_num_steps(num_steps)
         self.scheduler.set_guidance_schedule()
