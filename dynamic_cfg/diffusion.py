@@ -4,23 +4,14 @@
 __all__ = ['diff_name2kls', 'MinimalDiffusion']
 
 # %% ../nbs/05_diffusion.ipynb 2
-from abc import ABC
-import importlib
 from PIL import Image
 import torch
+from torch import nn
 from tqdm    import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 import diffusers
-from diffusers    import AutoencoderKL, UNet2DConditionModel
-from diffusers    import LMSDiscreteScheduler, DDIMScheduler, EulerDiscreteScheduler, DPMSolverMultistepScheduler, EulerAncestralDiscreteScheduler
-import torch
-from torch import nn
-try:
-    from k_diffusion.external import CompVisDenoiser, CompVisVDenoiser
-    from k_diffusion.sampling import get_sigmas_karras
-    import k_diffusion.sampling as k_sampling
-except:
-    print(f'WARNING: Could not import k_diffusion')
+from diffusers import AutoencoderKL, UNet2DConditionModel
+from diffusers import LMSDiscreteScheduler, DDIMScheduler, EulerDiscreteScheduler, DPMSolverMultistepScheduler, EulerAncestralDiscreteScheduler
 from .kdiff import *
 
 # %% ../nbs/05_diffusion.ipynb 3
@@ -300,8 +291,3 @@ class MinimalDiffusion:
         data = (data * 255).round().astype("uint8")
         image = Image.fromarray(data)
         return image
-
-# %% ../nbs/05_diffusion.ipynb 5
-#| export
-
-

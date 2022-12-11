@@ -4,9 +4,6 @@
 __all__ = ['name2norm', 'GuidanceTfm', 'PredNormGuidance', 'TNormGuidance', 'FullNormGuidance']
 
 # %% ../nbs/02_normalizers.ipynb 3
-'''Code for blog post:
-    https://enzokro.dev/blog/posts/2022-11-15-guidance-expts-1
-'''
 import torch
 
 # %% ../nbs/02_normalizers.ipynb 4
@@ -15,17 +12,18 @@ class GuidanceTfm:
     """
     name = "CFGuidance"
     def __init__(self):
-        # variables for the unconditioned and conditioned latents
+        # the unconditioned and conditioned latents
         self.u, self.t = None, None
-        # variable for the guidance update and final predictions
-        self.diff, self.pred = None, None
+        # the guidance update
+        self.diff = None
+        # the final prediction
+        self.pred = None
 
     def apply_cfg(self, guidance_scale):
-        pred = self.u + guidance_scale * (self.diff)
-        self.pred = pred
+        self.pred = self.u + guidance_scale * (self.diff)
 
-    def pre_proc (self): pass
-    def post_proc(self): pass
+    def pre_process(self):  pass
+    def post_process(self): pass
 
     def set_u(self, u): self.u = u
     def set_t(self, t): self.t = t
@@ -43,7 +41,7 @@ class PredNormGuidance(GuidanceTfm):
     """Scales the noise prediction by its overall norm.
     """
     name = "BaseNormGuidance"
-    def post_proc(self):
+    def post_process(self):
         self.pred = self.pred * (torch.linalg.norm(self.u) / torch.linalg.norm(self.pred))
         
         
@@ -54,7 +52,7 @@ class TNormGuidance(GuidanceTfm):
         Reference: https://arxiv.org/pdf/2205.15370.pdf
     """
     name = "TNormGuidance"
-    def pre_proc(self):
+    def pre_process(self):
         self.diff = (self.diff / torch.linalg.norm(self.diff)) * torch.linalg.norm(self.u)
         
         
@@ -71,4 +69,3 @@ name2norm = {
     't_norm': TNormGuidance,
     'full_norm': FullNormGuidance,
 }
-

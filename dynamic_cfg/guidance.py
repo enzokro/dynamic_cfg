@@ -24,15 +24,15 @@ class DynamicCFG:
         self.normalizer.compute_update()
 
         # apply optional pre-processing
-        self.normalizer.pre_proc()
+        self.normalizer.pre_process()
 
         # get the current, scheduled guidance scale 
-        guidance_scale = self.scheduler.value_of(param='g', at=ts)
+        guidance_scale = self.scheduler.value_at(idx=ts)
         # run classifier-free guidance 
         self.normalizer.apply_cfg(guidance_scale)
 
         # apply optional post-processing
-        self.normalizer.post_proc()
+        self.normalizer.post_process()
 
         # return the dynamic noise prediction
         return self.normalizer.get_pred()
